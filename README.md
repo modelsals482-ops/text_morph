@@ -17,8 +17,10 @@ with the blobs melting together like slime. Built for vertical (9:16) social vid
 - 13 built-in fonts (Helvetica, Plus Jakarta Sans, Inter, Poppins, Montserrat, Space Grotesk, Rubik, Bebas Neue,
   Archivo Black, Playfair Display, Permanent Marker, Pacifico, JetBrains Mono)
 - Upload your own font (`.ttf`, `.otf`, `.woff`, `.woff2`); it never leaves your browser
-- **Venom strands:** letters close together share thick webbing, stretched ones thin out
-  toward the middle (never hair thin). The **Venom** slider scales the mass (0 = plain thin lines)
+- **Venom strands** (toggle): each letter sits in a goo skirt that wraps it and runs out
+  along its strands. Letters close together share thick webbing, stretched ones thin out
+  (never hair thin). The **Venom** slider scales the mass. Turn the toggle off for the
+  original plain-line look
 - Sliders for speed, font size, slime (goo) strength and wobble
 - Colour pickers for background, blobs and letters
 - **Gradient blob:** 3-stop linear gradient (start, middle, end) with an angle slider,
@@ -64,13 +66,12 @@ The `-c:v libvpx-vp9` before `-i` matters: ffmpeg's default VP9 decoder drops th
   and lags behind its neighbours, which is what makes the motion feel elastic.
 - Targets blend between a "split" pose (a wiggly column or a stretched zigzag) and the
   "fused" pose (the word laid out on one line, wrapped at spaces if it is too wide).
-- Each strand is a tapered tube shaped between the edges of the two letter boxes: it flares
-  out where it meets a letter (like a goo fillet) and pinches to a thin neck in the middle.
-  Its thickness falls off with the distance between the letters, down to a fixed minimum,
-  and its base never gets wider than the letter box it attaches to. Strands are built from
-  overlapping discs, so the outline has no corners.
-- Where two strands leave the same letter, a curved web fills the V between them, so the
-  notch becomes a rounded goo fillet.
+- With venom on, every letter gets a goo "skirt" that wraps it and fades out along each
+  strand over a fixed length, so short and long arms share the same shape. Between the
+  skirts is a neck whose thickness depends on the distance between the letters (closer
+  means more mass, with a minimum so it is never hair thin). When two letters are close
+  their skirts add up, so short arms stay evenly thick instead of pinching.
+  Strands are built from overlapping discs, so the outline has no corners.
 - The blobs and strands are drawn on an off-screen canvas, then composited through an SVG
   "goo" filter (Gaussian blur plus an alpha threshold), which merges shapes that touch.
 - The letters are drawn on top without the filter so they stay crisp.
