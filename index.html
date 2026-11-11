@@ -58,6 +58,12 @@ Twenty six</textarea></label>
     <label>Blob <input type="color" id="ink" value="#000000"></label>
     <label>Letters <input type="color" id="fg" value="#ffffff"></label>
   </div>
+  <label><span><input type="checkbox" id="grad"> Gradient blob (Blob colour is the start)</span></label>
+  <div class="row">
+    <label>Middle <input type="color" id="g2" value="#5b9dff"></label>
+    <label>End <input type="color" id="g3" value="#a78bfa"></label>
+    <label>Angle <input type="range" id="gang" min="0" max="360" value="110"></label>
+  </div>
   <label>Export format
     <select id="fmt"><option value="mp4">MP4 (H.264)</option><option value="webm">WebM (VP9)</option></select></label>
   <button id="rec">Export video (all words, one loop)</button>
@@ -181,6 +187,18 @@ function web(p, a, b, f, bh) {
   o.quadraticCurveTo(p.x, p.y, bx, by); o.closePath(); o.fill();
 }
 
+// linear gradient across the current word's bounding box, CSS angle convention
+// (0 = upwards, 90 = to the right), so every word shows the full gradient as it moves
+function blobGradient(f) {
+  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y), m = f;
+  const x0 = Math.min(...xs) - m, x1 = Math.max(...xs) + m, y0 = Math.min(...ys) - m, y1 = Math.max(...ys) + m;
+  const a = $('gang').value * Math.PI / 180, dx = Math.sin(a), dy = -Math.cos(a);
+  const half = (Math.abs((x1 - x0) * dx) + Math.abs((y1 - y0) * dy)) / 2, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const g = o.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  g.addColorStop(0, $('ink').value); g.addColorStop(.42, $('g2').value); g.addColorStop(1, $('g3').value);
+  return g;
+}
+
 function clearBg() {
   ctx.filter = 'none'; ctx.clearRect(0, 0, W, H);
   if (!$('transparent').checked) { ctx.fillStyle = $('bg').value; ctx.fillRect(0, 0, W, H); }
@@ -207,7 +225,7 @@ function frame(now) {
   // blob layer: connecting strands + rounded boxes, gooed together
   const ink = $('ink').value, pad = f * .1, bh = f * 1.02;
   o.clearRect(0, 0, W, H);
-  o.fillStyle = ink;
+  o.fillStyle = $('grad').checked ? blobGradient(f) : ink;
   for (let i = 1; i < nodes.length; i++) strand(nodes[i - 1], nodes[i], f, bh);
   for (let i = 1; i < nodes.length - 1; i++) web(nodes[i], nodes[i - 1], nodes[i + 1], f, bh);
   nodes.forEach(n => { o.beginPath(); o.roundRect(n.x - n.w / 2 - pad, n.y - bh / 2, n.w + pad * 2, bh, f * .16); o.fill(); });
@@ -239,7 +257,9 @@ $('fontFile').onchange = async e => {
     refit();
   } catch { $('status').textContent = 'Could not read that font file.'; }
 };
-$('next').onclick = () => nextWord(performance.now());
+// a black start colour would make the gradient look muddy, so start from cyan
+$('grad').onchange = () => { if ($('grad').checked && $('ink').value === '#000000') $('ink').value = '#38dbf5'; };
+$('next').onclick =() => nextWord(performance.now());
 $('fuseBtn').onclick = () => { manualFuse = !manualFuse; $('fuseBtn').textContent = manualFuse ? 'Split' : 'Fuse'; };
 // MP4/H.264 has no alpha channel, so transparent export is always WebM
 $('transparent').onchange = () => { if ($('transparent').checked) $('fmt').value = 'webm'; };

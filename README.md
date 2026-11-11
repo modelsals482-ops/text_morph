@@ -21,6 +21,8 @@ with the blobs melting together like slime. Built for vertical (9:16) social vid
   toward the middle (never hair thin). The **Venom** slider scales the mass (0 = plain thin lines)
 - Sliders for speed, font size, slime (goo) strength and wobble
 - Colour pickers for background, blobs and letters
+- **Gradient blob:** 3-stop linear gradient (start, middle, end) with an angle slider,
+  stretched across each word so every word shows the full gradient as it moves
 - **Transparent background** for overlaying in your video editor
 - Export to **MP4** (H.264) or **WebM** (VP9), 720 x 1280, 30 fps
 
