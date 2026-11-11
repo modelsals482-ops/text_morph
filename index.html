@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Text Morph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Poppins:wght@700&family=Montserrat:wght@700&family=Space+Grotesk:wght@700&family=Rubik:wght@700&family=Bebas+Neue&family=Archivo+Black&family=Playfair+Display:wght@700&family=Permanent+Marker&family=Pacifico&family=JetBrains+Mono:wght@700&display=swap">
+<style>
+  body{margin:0;display:flex;flex-wrap:wrap;gap:20px;padding:16px;font:14px system-ui,sans-serif;background:#e9e9e9;color:#111}
+  #ui{width:280px;display:flex;flex-direction:column;gap:12px}
+  textarea{height:150px;font:inherit;padding:6px}
+  select,input[type=file]{font:inherit}
+  canvas{height:calc(100vh - 32px);max-width:100%;aspect-ratio:9/16;box-shadow:0 2px 14px #0003;
+    background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 0 0/24px 24px}
+  label{display:flex;flex-direction:column;gap:4px}
+  button{padding:9px;font:inherit;cursor:pointer}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  small{color:#555}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="goo"><feGaussianBlur id="gb" stdDeviation="7"/>
+    <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10"/></filter>
+</svg>
+<div id="ui">
+  <label>Text (one word / phrase per line)
+    <textarea id="txt">Wednesday
+November
+Eleven
+Twenty six</textarea></label>
+  <div class="row"><button id="fuseBtn">Fuse</button><button id="next">Next word</button></div>
+  <label><span><input type="checkbox" id="auto" checked> Auto-fuse at end of each word</span></label>
+  <label>Font
+    <select id="font">
+      <option value='"Helvetica Neue",Helvetica,Arial,sans-serif' data-w="700">Helvetica</option>
+      <option value="Inter" data-w="700">Inter</option>
+      <option value="Poppins" data-w="700">Poppins</option>
+      <option value="Montserrat" data-w="700">Montserrat</option>
+      <option value='"Space Grotesk"' data-w="700">Space Grotesk</option>
+      <option value="Rubik" data-w="700">Rubik</option>
+      <option value='"Bebas Neue"' data-w="400">Bebas Neue</option>
+      <option value='"Archivo Black"' data-w="400">Archivo Black</option>
+      <option value='"Playfair Display"' data-w="700">Playfair Display</option>
+      <option value='"Permanent Marker"' data-w="400">Permanent Marker</option>
+      <option value="Pacifico" data-w="400">Pacifico</option>
+      <option value='"JetBrains Mono"' data-w="700">JetBrains Mono</option>
+    </select></label>
+  <label>Or upload your own font (.ttf .otf .woff .woff2)
+    <input type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2"></label>
+  <label>Seconds per word <input type="range" id="hold" min="1.5" max="8" step="0.5" value="3"></label>
+  <label>Font size <input type="range" id="size" min="30" max="120" value="64"></label>
+  <label>Slime (goo) <input type="range" id="goo" min="0" max="16" value="7"></label>
+  <label>Wobble <input type="range" id="wob" min="0" max="2" step="0.1" value="1"></label>
+  <label><span><input type="checkbox" id="transparent"> Transparent background</span></label>
+  <div class="row">
+    <label>Background <input type="color" id="bg" value="#ffffff"></label>
+    <label>Blob <input type="color" id="ink" value="#000000"></label>
+    <label>Letters <input type="color" id="fg" value="#ffffff"></label>
+  </div>
+  <label>Export format
+    <select id="fmt"><option value="mp4">MP4 (H.264)</option><option value="webm">WebM (VP9)</option></select></label>
+  <button id="rec">Export video (all words, one loop)</button>
+  <small id="status">Keep this tab visible while exporting.</small>
+</div>
+<canvas id="c" width="720" height="1280"></canvas>
+<script>
+const $ = id => document.getElementById(id);
+const C = $('c'), ctx = C.getContext('2d'), W = C.width, H = C.height;
+const off = document.createElement('canvas'); off.width = W; off.height = H;
+const o = off.getContext('2d');
+
+let words = [], wi = -1, nodes = [], fused = [], pose = [], poseIdx = -1;
+let wordStart = 0, fuse = 0, manualFuse = false;
+const FS = () => +$('size').value, HOLD = () => +$('hold').value * 1000;
+const font = () => { const opt = $('font').selectedOptions[0]; return `${opt.dataset.w} ${FS()}px ${opt.value}`; };
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+// split a word into 1-2 char chunks; spaces become gaps after the previous chunk
+function chunks(word) {
+  const out = [];
+  for (let i = 0; i < word.length;) {
+    if (word[i] === ' ') { if (out.length) out[out.length - 1].gap++; i++; continue; }
+    let s = word.slice(i, i + (Math.random() < .3 ? 2 : 1));
+    if (s.includes(' ')) s = word[i];
+    out.push({ s, gap: 0 }); i += s.length;
+  }
+  return out;
+}
+
+// readable horizontal layout, wraps at spaces if too wide
+function layoutFused() {
+  ctx.font = font();
+  const sp = ctx.measureText(' ').width, lh = FS() * 1.15, maxW = W * .88;
+  const lines = [[]]; let x = 0;
+  nodes.forEach((n, i) => {
+    const afterGap = i > 0 && nodes[i - 1].gap;
+    if (afterGap && x + n.w > maxW) { lines.push([]); x = 0; }
+    lines.at(-1).push({ n, x: x + n.w / 2 }); x += n.w + n.gap * sp;
+  });
+  fused = [];
+  lines.forEach((ln, li) => {
+    const last = ln.at(-1), width = last.x + last.n.w / 2;
+    const y = H / 2 + (li - (lines.length - 1) / 2) * lh;
+    ln.forEach(p => fused.push({ x: W / 2 - width / 2 + p.x, y }));
+  });
+}
+
+// re-measure after a font or size change
+async function refit() {
+  try { await document.fonts.load(font()); } catch {}
+  ctx.font = font(); nodes.forEach(n => n.w = ctx.measureText(n.s).width);
+  if (nodes.length) layoutFused();
+}
+
+// split poses: 0 = wiggly column, 1 = stretched zigzag
+function newPose(kind) {
+  const n = nodes.length, f = FS();
+  const step = Math.min(f * 1.08, H * .75 / n);
+  const top = H / 2 - step * (n - 1) / 2;
+  if (kind === 0) pose = nodes.map((_, i) => ({ x: W / 2 + rnd(-.45, .45) * f, y: top + i * step }));
+  else {
+    const s2 = Math.min(step * 1.6, H * .85 / n), t2 = H / 2 - s2 * (n - 1) / 2;
+    let side = Math.random() < .5 ? -1 : 1;
+    pose = nodes.map((_, i) => {
+      if (Math.random() < .6) side = -side;
+      return { x: W / 2 + side * rnd(.05, .38) * W, y: t2 + i * s2 + rnd(-.3, .3) * f };
+    });
+  }
+}
+
+function nextWord(now) {
+  if (!words.length) return;
+  wi = (wi + 1) % words.length;
+  ctx.font = font();
+  const old = nodes;
+  nodes = chunks(words[wi]).map((c, i) => {
+    const p = old[Math.min(i, old.length - 1)] || { x: W / 2, y: H / 2, vx: 0, vy: 0 };
+    return { ...c, w: ctx.measureText(c.s).width, x: p.x, y: p.y, vx: p.vx, vy: p.vy, k: rnd(.035, .08) };
+  });
+  layoutFused(); poseIdx = -1; wordStart = now;
+}
+
+function clearBg() {
+  ctx.filter = 'none'; ctx.clearRect(0, 0, W, H);
+  if (!$('transparent').checked) { ctx.fillStyle = $('bg').value; ctx.fillRect(0, 0, W, H); }
+}
+
+function frame(now) {
+  if (!words.length) { clearBg(); return requestAnimationFrame(frame); }
+  if (wi < 0 || now - wordStart > HOLD()) nextWord(now);
+  const t = (now - wordStart) / HOLD();
+  const want = Math.min(2, Math.floor(t * 3));             // column -> stretch -> column
+  if (want !== poseIdx) { poseIdx = want; newPose(want === 1 ? 1 : 0); }
+  const target = manualFuse || ($('auto').checked && t > .62) ? 1 : 0;
+  fuse += (target - fuse) * .09;
+
+  const f = FS(), wob = +$('wob').value * (1 - fuse), ts = now / 1000;
+  nodes.forEach((n, i) => {
+    const tx = pose[i].x + (fused[i].x - pose[i].x) * fuse + Math.sin(ts * 2.3 + i * 1.7) * f * .1 * wob;
+    const ty = pose[i].y + (fused[i].y - pose[i].y) * fuse + Math.cos(ts * 1.9 + i) * f * .06 * wob;
+    const k = n.k + fuse * .05;                              // stiffer when fused so it settles readable
+    n.vx = (n.vx + (tx - n.x) * k) * .84; n.vy = (n.vy + (ty - n.y) * k) * .84;
+    n.x += n.vx; n.y += n.vy;
+  });
+
+  // blob layer: connecting strands + rounded boxes, gooed together
+  const ink = $('ink').value, pad = f * .1, bh = f * 1.02;
+  o.clearRect(0, 0, W, H);
+  o.fillStyle = o.strokeStyle = ink; o.lineWidth = f * .11; o.lineCap = 'round';
+  o.beginPath(); nodes.forEach((n, i) => i ? o.lineTo(n.x, n.y) : o.moveTo(n.x, n.y)); o.stroke();
+  nodes.forEach(n => { o.beginPath(); o.roundRect(n.x - n.w / 2 - pad, n.y - bh / 2, n.w + pad * 2, bh, f * .16); o.fill(); });
+
+  clearBg();
+  $('gb').setAttribute('stdDeviation', $('goo').value);
+  ctx.filter = +$('goo').value ? 'url(#goo)' : 'none';
+  ctx.drawImage(off, 0, 0); ctx.filter = 'none';
+  ctx.font = font(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = $('fg').value;
+  nodes.forEach(n => ctx.fillText(n.s, n.x, n.y + f * .04));
+  requestAnimationFrame(frame);
+}
+
+function restart() {
+  words = $('txt').value.split('\n').map(s => s.trim()).filter(Boolean);
+  wi = -1; nodes = []; fuse = 0;
+}
+$('txt').oninput = restart;
+$('size').oninput = refit;
+$('font').onchange = refit;
+$('fontFile').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
+  const name = 'Custom-' + file.name.replace(/\W/g, '');
+  try {
+    const face = new FontFace(name, await file.arrayBuffer());
+    document.fonts.add(await face.load());
+    $('font').add(new Option(file.name, `"${name}"`, true, true));
+    $('font').selectedOptions[0].dataset.w = '400';
+    refit();
+  } catch { $('status').textContent = 'Could not read that font file.'; }
+};
+$('next').onclick = () => nextWord(performance.now());
+$('fuseBtn').onclick = () => { manualFuse = !manualFuse; $('fuseBtn').textContent = manualFuse ? 'Split' : 'Fuse'; };
+// MP4/H.264 has no alpha channel, so transparent export is always WebM
+$('transparent').onchange = () => { if ($('transparent').checked) $('fmt').value = 'webm'; };
+$('fmt').onchange = () => { if ($('fmt').value === 'mp4' && $('transparent').checked) {
+  $('fmt').value = 'webm'; $('status').textContent = 'MP4 cannot store transparency, so transparent exports are WebM.'; } };
+
+$('rec').onclick = () => {
+  const prefs = $('fmt').value === 'mp4'
+    ? ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']
+    : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  const type = prefs.find(t => MediaRecorder.isTypeSupported(t));
+  if (!type) { $('status').textContent = 'This browser cannot record video. Try Chrome or Edge.'; return; }
+  const rec = new MediaRecorder(C.captureStream(30), { mimeType: type, videoBitsPerSecond: 8e6 });
+  const parts = []; rec.ondataavailable = e => parts.push(e.data);
+  rec.onstop = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(parts, { type }));
+    a.download = 'text-morph.' + (type.startsWith('video/mp4') ? 'mp4' : 'webm'); a.click();
+    $('rec').disabled = false; $('status').textContent = 'Saved.';
+  };
+  restart(); rec.start(); $('rec').disabled = true;
+  const ms = words.length * HOLD() + 400;
+  $('status').textContent = `Recording ${(ms / 1000).toFixed(1)} s... keep this tab visible.`;
+  setTimeout(() => rec.stop(), ms);
+};
+
+restart(); requestAnimationFrame(frame);
+</script>
+</body></html>
