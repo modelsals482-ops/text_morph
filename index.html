@@ -4,7 +4,7 @@
 <title>Text Morph</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Poppins:wght@700&family=Montserrat:wght@700&family=Space+Grotesk:wght@700&family=Rubik:wght@700&family=Bebas+Neue&family=Archivo+Black&family=Playfair+Display:wght@700&family=Permanent+Marker&family=Pacifico&family=JetBrains+Mono:wght@700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&family=Inter:wght@700&family=Poppins:wght@700&family=Montserrat:wght@700&family=Space+Grotesk:wght@700&family=Rubik:wght@700&family=Bebas+Neue&family=Archivo+Black&family=Playfair+Display:wght@700&family=Permanent+Marker&family=Pacifico&family=JetBrains+Mono:wght@700&display=swap">
 <style>
   body{margin:0;display:flex;flex-wrap:wrap;gap:20px;padding:16px;font:14px system-ui,sans-serif;background:#e9e9e9;color:#111}
   #ui{width:280px;display:flex;flex-direction:column;gap:12px}
@@ -32,6 +32,7 @@ Twenty six</textarea></label>
   <label>Font
     <select id="font">
       <option value='"Helvetica Neue",Helvetica,Arial,sans-serif' data-w="700">Helvetica</option>
+      <option value='"Plus Jakarta Sans"' data-w="800">Plus Jakarta Sans</option>
       <option value="Inter" data-w="700">Inter</option>
       <option value="Poppins" data-w="700">Poppins</option>
       <option value="Montserrat" data-w="700">Montserrat</option>
@@ -146,17 +147,27 @@ function strand(a, b, f, bh) {
   const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
   const venom = +$('venom').value, floor = f * .1;
   const reach = Math.max(0, 1 - d / (f * 7));               // 1 when touching, 0 at ~7 letter heights
-  const mid = Math.max(floor, bh * .85 * venom * reach * reach);
-  const end = Math.max(mid, bh * .7 * venom * (.35 + .65 * reach), floor);
-  const nx = -dy / d, ny = dx / d, L = [], R = [], S = 16;
+  let mid = Math.max(floor, bh * .85 * venom * reach * reach);
+  // capped at the narrower letter box so the base never pokes out past the letters as a square corner
+  const end = Math.min(bh, Math.min(a.w, b.w) + f * .2, Math.max(mid, bh * .8 * venom * (.45 + .55 * reach), floor));
+  mid = Math.min(mid, end);                                // neck never wider than its base
+  // shape the strand between the box EDGES, so the flare is visible instead of hidden inside the box
+  const edge = (n, cx, cy) => Math.min((n.w / 2 + f * .1) / (Math.abs(cx) || 1e-6), (bh / 2) / (Math.abs(cy) || 1e-6));
+  const ta = Math.min(.5, edge(a, dx / d, dy / d) / d), tb = Math.max(.5, 1 - edge(b, dx / d, dy / d) / d);
+  const nx = -dy / d, ny = dx / d, L = [], R = [], S = 32;
   for (let s = 0; s <= S; s++) {
-    const t = s / S, u = 2 * t - 1, w = (mid + (end - mid) * u * u) / 2; // parabola: ends thick, middle thin
+    // |u|^3 keeps a long thin neck and flares fast into each letter, like a goo fillet
+    const t = s / S, span = tb - ta;
+    const u = t <= ta || t >= tb || span <= 0 ? 1 : Math.abs(2 * (t - ta) / span - 1);
+    const w = (mid + (end - mid) * u ** 3) / 2;
     const x = a.x + dx * t, y = a.y + dy * t;
     L.push([x + nx * w, y + ny * w]); R.push([x - nx * w, y - ny * w]);
   }
-  o.beginPath(); o.moveTo(...L[0]);
-  L.forEach(p => o.lineTo(...p)); R.reverse().forEach(p => o.lineTo(...p));
-  o.fill();
+  const pts = L.concat(R.reverse());
+  o.beginPath(); o.moveTo(...pts[0]);
+  for (let i = 1; i < pts.length - 1; i++)  // curve through midpoints so the outline has no corners
+    o.quadraticCurveTo(...pts[i], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+  o.lineTo(...pts.at(-1)); o.fill();
 }
 
 function clearBg() {
@@ -190,7 +201,7 @@ function frame(now) {
   nodes.forEach(n => { o.beginPath(); o.roundRect(n.x - n.w / 2 - pad, n.y - bh / 2, n.w + pad * 2, bh, f * .16); o.fill(); });
 
   clearBg();
-  $('gb').setAttribute('stdDeviation', $('goo').value);
+  $('gb').setAttribute('stdDeviation', $('goo').value * f / 64); // goo scales with font size
   ctx.filter = +$('goo').value ? 'url(#goo)' : 'none';
   ctx.drawImage(off, 0, 0); ctx.filter = 'none';
   ctx.font = font(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = $('fg').value;

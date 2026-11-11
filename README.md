@@ -6,13 +6,15 @@ Each word is split into small letter chunks on rounded blobs, linked by stretchy
 The chain wobbles, stretches into a zigzag, and then **fuses** back into a readable word,
 with the blobs melting together like slime. Built for vertical (9:16) social video.
 
-**Live demo:** https://modelsals482-ops.github.io/text_morph/ (after GitHub Pages is enabled, see below)
+<p align="center"><img src="docs/demo.gif" alt="Text Morph demo: letters on black blobs stretch apart on gooey strands, then fuse into readable words" width="300"></p>
+
+**Live demo:** https://modelsals482-ops.github.io/text_morph/
 
 ## Features
 
 - Type one word or phrase per line; the animation cycles through them
 - **Fuse / Split** button, plus auto-fuse at the end of every word so viewers can read it
-- 12 built-in fonts (Helvetica, Inter, Poppins, Montserrat, Space Grotesk, Rubik, Bebas Neue,
+- 13 built-in fonts (Helvetica, Plus Jakarta Sans, Inter, Poppins, Montserrat, Space Grotesk, Rubik, Bebas Neue,
   Archivo Black, Playfair Display, Permanent Marker, Pacifico, JetBrains Mono)
 - Upload your own font (`.ttf`, `.otf`, `.woff`, `.woff2`); it never leaves your browser
 - **Venom strands:** letters close together share thick webbing, stretched ones thin out
@@ -60,8 +62,10 @@ The `-c:v libvpx-vp9` before `-i` matters: ffmpeg's default VP9 decoder drops th
   and lags behind its neighbours, which is what makes the motion feel elastic.
 - Targets blend between a "split" pose (a wiggly column or a stretched zigzag) and the
   "fused" pose (the word laid out on one line, wrapped at spaces if it is too wide).
-- Each strand is a tapered tube: thick where it leaves a letter, pinched in the middle.
-  Its thickness falls off with the distance between the two letters, down to a fixed minimum.
+- Each strand is a tapered tube shaped between the edges of the two letter boxes: it flares
+  out where it meets a letter (like a goo fillet) and pinches to a thin neck in the middle.
+  Its thickness falls off with the distance between the letters, down to a fixed minimum,
+  and its base never gets wider than the letter box it attaches to.
 - The blobs and strands are drawn on an off-screen canvas, then composited through an SVG
   "goo" filter (Gaussian blur plus an alpha threshold), which merges shapes that touch.
 - The letters are drawn on top without the filter so they stay crisp.
@@ -72,11 +76,11 @@ The `-c:v libvpx-vp9` before `-i` matters: ffmpeg's default VP9 decoder drops th
 Best in **Chrome** and **Edge** (MP4 and WebM export, transparency). Firefox runs the
 animation and exports WebM. Safari support for the canvas goo filter is limited.
 
-## Enable the live demo (GitHub Pages)
+## Host your own copy (GitHub Pages)
 
-Repo **Settings > Pages > Build and deployment > Source: Deploy from a branch**,
-branch `main`, folder `/ (root)`. The site appears at
-`https://modelsals482-ops.github.io/text_morph/` within a minute or two.
+Fork the repo, then **Settings > Pages > Build and deployment > Source: Deploy from a branch**,
+branch `main`, folder `/ (root)`. Your copy appears at
+`https://<your-username>.github.io/text_morph/` within a minute or two.
 
 ## License
 
