@@ -65,7 +65,10 @@ The `-c:v libvpx-vp9` before `-i` matters: ffmpeg's default VP9 decoder drops th
 - Each strand is a tapered tube shaped between the edges of the two letter boxes: it flares
   out where it meets a letter (like a goo fillet) and pinches to a thin neck in the middle.
   Its thickness falls off with the distance between the letters, down to a fixed minimum,
-  and its base never gets wider than the letter box it attaches to.
+  and its base never gets wider than the letter box it attaches to. Strands are built from
+  overlapping discs, so the outline has no corners.
+- Where two strands leave the same letter, a curved web fills the V between them, so the
+  notch becomes a rounded goo fillet.
 - The blobs and strands are drawn on an off-screen canvas, then composited through an SVG
   "goo" filter (Gaussian blur plus an alpha threshold), which merges shapes that touch.
 - The letters are drawn on top without the filter so they stay crisp.
