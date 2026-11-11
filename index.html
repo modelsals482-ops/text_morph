@@ -49,7 +49,8 @@ Twenty six</textarea></label>
   <label>Seconds per word <input type="range" id="hold" min="1.5" max="8" step="0.5" value="3"></label>
   <label>Font size <input type="range" id="size" min="30" max="120" value="64"></label>
   <label>Slime (goo) <input type="range" id="goo" min="0" max="16" value="7"></label>
-  <label>Wobble <input type="range" id="wob" min="0" max="2" step="0.1" value="1"></label>
+  <label>Venom (strand mass) <input type="range" id="venom" min="0" max="2" step="0.05" value="1"></label>
+  <label>Wobble<input type="range" id="wob" min="0" max="2" step="0.1" value="1"></label>
   <label><span><input type="checkbox" id="transparent"> Transparent background</span></label>
   <div class="row">
     <label>Background <input type="color" id="bg" value="#ffffff"></label>
@@ -139,6 +140,25 @@ function nextWord(now) {
   layoutFused(); poseIdx = -1; wordStart = now;
 }
 
+// venom strand: thick where it leaves each blob, pinched in the middle.
+// Closer letters = more connecting mass; far letters thin out, never below a floor.
+function strand(a, b, f, bh) {
+  const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+  const venom = +$('venom').value, floor = f * .1;
+  const reach = Math.max(0, 1 - d / (f * 7));               // 1 when touching, 0 at ~7 letter heights
+  const mid = Math.max(floor, bh * .85 * venom * reach * reach);
+  const end = Math.max(mid, bh * .7 * venom * (.35 + .65 * reach), floor);
+  const nx = -dy / d, ny = dx / d, L = [], R = [], S = 16;
+  for (let s = 0; s <= S; s++) {
+    const t = s / S, u = 2 * t - 1, w = (mid + (end - mid) * u * u) / 2; // parabola: ends thick, middle thin
+    const x = a.x + dx * t, y = a.y + dy * t;
+    L.push([x + nx * w, y + ny * w]); R.push([x - nx * w, y - ny * w]);
+  }
+  o.beginPath(); o.moveTo(...L[0]);
+  L.forEach(p => o.lineTo(...p)); R.reverse().forEach(p => o.lineTo(...p));
+  o.fill();
+}
+
 function clearBg() {
   ctx.filter = 'none'; ctx.clearRect(0, 0, W, H);
   if (!$('transparent').checked) { ctx.fillStyle = $('bg').value; ctx.fillRect(0, 0, W, H); }
@@ -165,8 +185,8 @@ function frame(now) {
   // blob layer: connecting strands + rounded boxes, gooed together
   const ink = $('ink').value, pad = f * .1, bh = f * 1.02;
   o.clearRect(0, 0, W, H);
-  o.fillStyle = o.strokeStyle = ink; o.lineWidth = f * .11; o.lineCap = 'round';
-  o.beginPath(); nodes.forEach((n, i) => i ? o.lineTo(n.x, n.y) : o.moveTo(n.x, n.y)); o.stroke();
+  o.fillStyle = ink;
+  for (let i = 1; i < nodes.length; i++) strand(nodes[i - 1], nodes[i], f, bh);
   nodes.forEach(n => { o.beginPath(); o.roundRect(n.x - n.w / 2 - pad, n.y - bh / 2, n.w + pad * 2, bh, f * .16); o.fill(); });
 
   clearBg();

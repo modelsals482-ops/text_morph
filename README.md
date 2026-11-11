@@ -15,6 +15,8 @@ with the blobs melting together like slime. Built for vertical (9:16) social vid
 - 12 built-in fonts (Helvetica, Inter, Poppins, Montserrat, Space Grotesk, Rubik, Bebas Neue,
   Archivo Black, Playfair Display, Permanent Marker, Pacifico, JetBrains Mono)
 - Upload your own font (`.ttf`, `.otf`, `.woff`, `.woff2`); it never leaves your browser
+- **Venom strands:** letters close together share thick webbing, stretched ones thin out
+  toward the middle (never hair thin). The **Venom** slider scales the mass (0 = plain thin lines)
 - Sliders for speed, font size, slime (goo) strength and wobble
 - Colour pickers for background, blobs and letters
 - **Transparent background** for overlaying in your video editor
@@ -58,6 +60,8 @@ The `-c:v libvpx-vp9` before `-i` matters: ffmpeg's default VP9 decoder drops th
   and lags behind its neighbours, which is what makes the motion feel elastic.
 - Targets blend between a "split" pose (a wiggly column or a stretched zigzag) and the
   "fused" pose (the word laid out on one line, wrapped at spaces if it is too wide).
+- Each strand is a tapered tube: thick where it leaves a letter, pinched in the middle.
+  Its thickness falls off with the distance between the two letters, down to a fixed minimum.
 - The blobs and strands are drawn on an off-screen canvas, then composited through an SVG
   "goo" filter (Gaussian blur plus an alpha threshold), which merges shapes that touch.
 - The letters are drawn on top without the filter so they stay crisp.
