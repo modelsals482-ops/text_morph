@@ -50,8 +50,7 @@ Twenty six</textarea></label>
   <label>Seconds per word <input type="range" id="hold" min="1.5" max="8" step="0.5" value="3"></label>
   <label>Font size <input type="range" id="size" min="30" max="120" value="64"></label>
   <label>Slime (goo) <input type="range" id="goo" min="0" max="16" value="7"></label>
-  <label><span><input type="checkbox" id="venomOn" checked> Venom strands (off = plain lines)</span></label>
-  <label>Venom (strand mass)<input type="range" id="venom" min="0" max="2" step="0.05" value="1"></label>
+  <label>Venom (strand mass) <input type="range" id="venom" min="0" max="2" step="0.05" value="1"></label>
   <label>Wobble<input type="range" id="wob" min="0" max="2" step="0.1" value="1"></label>
   <label><span><input type="checkbox" id="transparent"> Transparent background</span></label>
   <div class="row">
@@ -148,36 +147,44 @@ function nextWord(now) {
   layoutFused(); poseIdx = -1; wordStart = now;
 }
 
-// Strand between two letters. Venom off: the original plain line.
-// Venom on: every letter wears a goo "skirt" that wraps it and runs out along the strand,
-// fading over a fixed length (so short and long arms share the same shape); between the
-// skirts sits a neck whose thickness depends on distance (closer = more mass, with a floor).
+// venom strand: thick where it leaves each blob, pinched in the middle.
+// Closer letters = more connecting mass; far letters thin out, never below a floor.
 function strand(a, b, f, bh) {
   const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
-  if (!$('venomOn').checked) {
-    o.strokeStyle = o.fillStyle; o.lineWidth = f * .11; o.lineCap = 'round';
-    o.beginPath(); o.moveTo(a.x, a.y); o.lineTo(b.x, b.y); o.stroke(); return;
-  }
-  const v = +$('venom').value, floor = f * .1;
+  const venom = +$('venom').value, floor = f * .1;
   const reach = Math.max(0, 1 - d / (f * 7));               // 1 when touching, 0 at ~7 letter heights
-  const neck = Math.max(floor, bh * .6 * v * reach * reach) / 2;     // radius
-  const skirt = Math.max(neck, bh * (.42 + .12 * v));                // radius at the letter edge
-  const fade = f * (.3 + .4 * v);                                    // how far the skirt runs out
-  // distance from a letter's centre to its box edge along the strand
-  const ux = Math.abs(dx / d), uy = Math.abs(dy / d);
-  const edge = n => Math.min(d / 2, (n.w / 2 + f * .1) / (ux || 1e-6), (bh / 2) / (uy || 1e-6));
-  const ea = edge(a), eb = edge(b);
-  // Built from overlapping discs: a union of circles has no corners for the goo filter to snag on.
+  let mid = Math.max(floor, bh * .85 * venom * reach * reach);
+  // capped at the narrower letter box so the base never pokes out past the letters as a square corner
+  const end = Math.min(bh, Math.min(a.w, b.w) + f * .2, Math.max(mid, bh * .8 * venom * (.45 + .55 * reach), floor));
+  mid = Math.min(mid, end);                                // neck never wider than its base
+  // shape the strand between the box EDGES, so the flare is visible instead of hidden inside the box
+  const edge = (n, cx, cy) => Math.min((n.w / 2 + f * .1) / (Math.abs(cx) || 1e-6), (bh / 2) / (Math.abs(cy) || 1e-6));
+  const ta = Math.min(.5, edge(a, dx / d, dy / d) / d), tb = Math.max(.5, 1 - edge(b, dx / d, dy / d) / d);
+  // Built from overlapping discs, not a polygon: a union of circles has no corners, so the
+  // strand meets the letter (and other strands) in round shapes the goo filter can melt.
+  const span = tb - ta;
   o.beginPath();
-  for (let s = 0; ; ) {
-    const xa = Math.max(0, s - ea) / fade, xb = Math.max(0, d - s - eb) / fade;
-    const g = Math.min(1, Math.exp(-xa * xa) + Math.exp(-xb * xb)); // two skirts add up, so short arms stay full
-    const r = neck + (skirt - neck) * g, x = a.x + dx * s / d, y = a.y + dy * s / d;
+  for (let t = 0; ; ) {
+    // |u|^2.4: long thin neck, smooth flare into each letter
+    const u = t <= ta || t >= tb || span <= 0 ? 1 : Math.abs(2 * (t - ta) / span - 1);
+    const r = (mid + (end - mid) * u ** 2.4) / 2, x = a.x + dx * t, y = a.y + dy * t;
     o.moveTo(x + r, y); o.arc(x, y, r, 0, Math.PI * 2);
-    if (s >= d) break;
-    s = Math.min(d, s + Math.max(.6, r * .3));              // step < radius keeps the edge smooth
+    if (t >= 1) break;
+    t = Math.min(1, t + Math.max(.6, r * .35) / d);         // step < radius keeps the edge smooth
   }
   o.fill();
+}
+
+// webbing in the V where two strands leave the same letter: a concave curve between the
+// two strands (control point at the letter), so the notch becomes a rounded goo fillet
+function web(p, a, b, f, bh) {
+  const venom = +$('venom').value; if (!venom) return;
+  const da = Math.hypot(a.x - p.x, a.y - p.y) || 1, db = Math.hypot(b.x - p.x, b.y - p.y) || 1;
+  const L = Math.min(da * .5, db * .5, p.w / 2 + f * (.5 + 1.3 * venom)); // reach well past the box edge
+  const ax = p.x + (a.x - p.x) / da * L, ay = p.y + (a.y - p.y) / da * L;
+  const bx = p.x + (b.x - p.x) / db * L, by = p.y + (b.y - p.y) / db * L;
+  o.beginPath(); o.moveTo(p.x, p.y); o.lineTo(ax, ay);
+  o.quadraticCurveTo(p.x, p.y, bx, by); o.closePath(); o.fill();
 }
 
 // linear gradient across the current word's bounding box, CSS angle convention
@@ -219,7 +226,9 @@ function frame(now) {
   const ink = $('ink').value, pad = f * .1, bh = f * 1.02;
   o.clearRect(0, 0, W, H);
   o.fillStyle = $('grad').checked ? blobGradient(f) : ink;
-  for (let i = 1; i < nodes.length; i++) strand(nodes[i - 1], nodes[i], f, bh);  nodes.forEach(n => { o.beginPath(); o.roundRect(n.x - n.w / 2 - pad, n.y - bh / 2, n.w + pad * 2, bh, f * .16); o.fill(); });
+  for (let i = 1; i < nodes.length; i++) strand(nodes[i - 1], nodes[i], f, bh);
+  for (let i = 1; i < nodes.length - 1; i++) web(nodes[i], nodes[i - 1], nodes[i + 1], f, bh);
+  nodes.forEach(n => { o.beginPath(); o.roundRect(n.x - n.w / 2 - pad, n.y - bh / 2, n.w + pad * 2, bh, f * .16); o.fill(); });
 
   clearBg();
   $('gb').setAttribute('stdDeviation', $('goo').value * f / 64); // goo scales with font size
