@@ -50,7 +50,8 @@ Twenty six</textarea></label>
   <label>Seconds per word <input type="range" id="hold" min="1.5" max="8" step="0.5" value="3"></label>
   <label>Font size <input type="range" id="size" min="30" max="120" value="64"></label>
   <label>Slime (goo) <input type="range" id="goo" min="0" max="16" value="7"></label>
-  <label>Venom (strand mass) <input type="range" id="venom" min="0" max="2" step="0.05" value="1"></label>
+  <label><span><input type="checkbox" id="venomOn" checked> Venom strands (off = plain lines)</span></label>
+  <label>Venom (strand mass)<input type="range" id="venom" min="0" max="2" step="0.05" value="1"></label>
   <label>Wobble<input type="range" id="wob" min="0" max="2" step="0.1" value="1"></label>
   <label><span><input type="checkbox" id="transparent"> Transparent background</span></label>
   <div class="row">
@@ -151,6 +152,10 @@ function nextWord(now) {
 // Closer letters = more connecting mass; far letters thin out, never below a floor.
 function strand(a, b, f, bh) {
   const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+  if (!$('venomOn').checked) {                              // venom off: the original plain line
+    o.strokeStyle = o.fillStyle; o.lineWidth = f * .11; o.lineCap = 'round';
+    o.beginPath(); o.moveTo(a.x, a.y); o.lineTo(b.x, b.y); o.stroke(); return;
+  }
   const venom = +$('venom').value, floor = f * .1;
   const reach = Math.max(0, 1 - d / (f * 7));               // 1 when touching, 0 at ~7 letter heights
   let mid = Math.max(floor, bh * .85 * venom * reach * reach);
@@ -178,7 +183,7 @@ function strand(a, b, f, bh) {
 // webbing in the V where two strands leave the same letter: a concave curve between the
 // two strands (control point at the letter), so the notch becomes a rounded goo fillet
 function web(p, a, b, f, bh) {
-  const venom = +$('venom').value; if (!venom) return;
+  const venom = +$('venom').value; if (!venom || !$('venomOn').checked) return;
   const da = Math.hypot(a.x - p.x, a.y - p.y) || 1, db = Math.hypot(b.x - p.x, b.y - p.y) || 1;
   const L = Math.min(da * .5, db * .5, p.w / 2 + f * (.5 + 1.3 * venom)); // reach well past the box edge
   const ax = p.x + (a.x - p.x) / da * L, ay = p.y + (a.y - p.y) / da * L;

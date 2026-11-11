@@ -18,7 +18,8 @@ with the blobs melting together like slime. Built for vertical (9:16) social vid
   Archivo Black, Playfair Display, Permanent Marker, Pacifico, JetBrains Mono)
 - Upload your own font (`.ttf`, `.otf`, `.woff`, `.woff2`); it never leaves your browser
 - **Venom strands:** letters close together share thick webbing, stretched ones thin out
-  toward the middle (never hair thin). The **Venom** slider scales the mass (0 = plain thin lines)
+  toward the middle (never hair thin). The **Venom** slider scales the mass; untick
+  **Venom strands** for the original plain-line look
 - Sliders for speed, font size, slime (goo) strength and wobble
 - Colour pickers for background, blobs and letters
 - **Gradient blob:** 3-stop linear gradient (start, middle, end) with an angle slider,
